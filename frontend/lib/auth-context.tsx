@@ -1,19 +1,10 @@
 'use client';
 
 import * as React from 'react';
+import { useEffect } from 'react';
+import apiClient, { UserRole, UserProfile as ApiUserProfile } from './api';
 
-export type UserRole = 'superadmin' | 'tenantadmin' | 'manager' | 'viewer';
-
-export interface UserProfile {
-  id: string;
-  tenant_id: string;
-  full_name: string;
-  email: string;
-  avatar_url: string | null;
-  role: UserRole;
-  tenant_name?: string;
-  tenant_slug?: string;
-}
+export interface UserProfile extends ApiUserProfile {}
 
 interface AuthContextValue {
   user: UserProfile | null;
@@ -25,31 +16,79 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
 }
 
-const mockUser: UserProfile = {
-  id: 'mock-user-id',
-  tenant_id: 'mock-tenant-id',
-  full_name: 'Demo User',
-  email: 'demo@example.com',
-  avatar_url: null,
-  role: 'tenantadmin',
-  tenant_name: 'Demo Organization',
-  tenant_slug: 'demo-org'
-};
-
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = React.useState<UserProfile | null>(mockUser);
-  const [session, setSession] = React.useState<any | null>({ user: mockUser });
-  const [profile, setProfile] = React.useState<UserProfile | null>(mockUser);
-  const [loading, setLoading] = React.useState(false);
+  const [user, setUser] = React.useState<UserProfile | null>(null);
+  const [session, setSession] = React.useState<any | null>(null);
+  const [profile, setProfile] = React.useState<UserProfile | null>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  // Check for existing token and validate user on mount
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        const token = apiClient.getToken();
+        if (token) {
+          const response = await apiClient.getCurrentUser();
+          if (response.data) {
+            const userData = response.data;
+            setUser(userData);
+            setSession({ user: userData });
+            setProfile(userData);
+          } else {
+            // Token is invalid, clear it
+            apiClient.clearToken();
+          }
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        apiClient.clearToken();
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
+  }, []);
 
   const signIn = async (email: string, password: string) => {
-    // Mock sign in - always succeeds
-    setUser(mockUser);
-    setSession({ user: mockUser });
-    setProfile(mockUser);
-    return { error: null };
+    setLoading(true);
+    try {
+      const response = await apiClient.login({ email, password });
+      
+      if (response.error) {
+        return { error: response.error };
+      }
+
+      if (response.data) {
+        const { token, user: userData } = response.data;
+        apiClient.setToken(token);
+        
+        const userProfile: UserProfile = {
+          id: userData.id,
+          tenant_id: userData.tenant_id,
+          full_name: userData.full_name,
+          email: userData.email,
+          avatar_url: userData.avatar_url || null,
+          role: userData.role as UserRole,
+          tenant_name: userData.tenant_name,
+          tenant_slug: userData.tenant_slug,
+        };
+
+        setUser(userProfile);
+        setSession({ user: userProfile });
+        setProfile(userProfile);
+        
+        return { error: null };
+      }
+
+      return { error: 'Login failed' };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Login failed' };
+    } finally {
+      setLoading(false);
+    }
   };
 
   const signUp = async (
@@ -59,18 +98,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     tenantName: string,
     tenantSlug: string
   ) => {
-    // Mock sign up - always succeeds
-    const newUser = { ...mockUser, full_name: fullName, tenant_name: tenantName, tenant_slug: tenantSlug };
-    setUser(newUser);
-    setSession({ user: newUser });
-    setProfile(newUser);
-    return { error: null };
+    // For now, sign up is not implemented in the backend
+    // You would need to create a registration endpoint
+    return { error: 'Registration not yet implemented. Please contact administrator.' };
   };
 
   const signOut = async () => {
-    setUser(null);
-    setSession(null);
-    setProfile(null);
+    try {
+      apiClient.clearToken();
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
   };
 
   return (
