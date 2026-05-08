@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useTheme } from 'next-themes';
 import { useRouter } from 'next/navigation';
 import { useAuth, type UserRole } from '@/lib/auth-context';
-import { mockApi } from '@/lib/mock-data';
+import apiClient from '@/lib/api';
 import { Bell, Menu, Moon, Sun, Search, LogOut, User, Building2, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GlobalSearch } from '@/components/global-search';
@@ -51,15 +51,13 @@ export function TopNavbar({ onMenuClick }: TopNavbarProps) {
     if (!profile?.tenant_id) return;
 
     const fetchUnread = async () => {
-      // Mock notification count
-      const { data } = await mockApi.getNotifications();
+      const { data } = await apiClient.getNotifications();
       const unreadCount = data?.filter(n => !n.read).length || 0;
       setUnreadCount(unreadCount);
     };
 
     fetchUnread();
 
-    // Mock real-time updates - simplified for demo
     const interval = setInterval(fetchUnread, 30000); // Poll every 30 seconds
 
     return () => {

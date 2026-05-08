@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TriangleAlert as AlertTriangle, TrendingUp, TrendingDown, Target } from 'lucide-react';
+import { mockApi } from '@/lib/mock-data';
 
 interface KpiData {
   kpi_name: string;
@@ -46,24 +47,46 @@ export function KpiSummary() {
     if (!profile?.tenant_id) return;
 
     const fetchAll = async () => {
-      const [kpiRes, prodRes, expRes] = await Promise.all([
-        supabase.from('kpi_targets').select('*').eq('tenant_id', profile.tenant_id).eq('period', '2026-04'),
-        supabase.from('products').select('id, sku, name, unit_price, quantity_on_hand').eq('tenant_id', profile.tenant_id),
-        supabase.from('department_expenses').select('*').eq('tenant_id', profile.tenant_id).eq('month', '2026-04'),
+      const [revenueRes, inventoryRes, expensesRes] = await Promise.all([
+        mockApi.getMonthlyRevenue(),
+        mockApi.getInventory(),
+        mockApi.getDepartmentExpenses(),
       ]);
 
-      if (kpiRes.data) setKpis(kpiRes.data);
+      if (revenueRes.data) {
+        const latest = revenueRes.data[revenueRes.data.length - 1];
+        setKpis([
+          {
+            kpi_name: 'Monthly Revenue',
+            actual: latest.revenue,
+            target: latest.target,
+            period: latest.month,
+          },
+          {
+            kpi_name: 'Gross Margin',
+            actual: Math.max(latest.revenue - 260000, 0),
+            target: 180000,
+            period: latest.month,
+          },
+          {
+            kpi_name: 'Operating Profit',
+            actual: Math.max(latest.revenue - 320000, 0),
+            target: 140000,
+            period: latest.month,
+          },
+        ]);
+      }
 
-      if (prodRes.data) {
-        const sorted = prodRes.data
+      if (inventoryRes.data) {
+        const sorted = inventoryRes.data
           .map((p: any) => ({ ...p, revenue_potential: Number(p.unit_price) * Number(p.quantity_on_hand) }))
           .sort((a: any, b: any) => b.revenue_potential - a.revenue_potential)
           .slice(0, 5);
         setTopProducts(sorted);
       }
 
-      if (expRes.data) {
-        const alerts = expRes.data
+      if (expensesRes.data) {
+        const alerts = expensesRes.data
           .map((e: any) => ({
             department: e.department,
             amount: Number(e.amount),

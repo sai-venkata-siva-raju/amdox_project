@@ -15,7 +15,7 @@ const navItems = [
   { label: 'Reports', href: '/reports', icon: BarChart3 },
   { label: 'Notifications', href: '/notifications', icon: Bell },
   { label: 'Settings', href: '/settings', icon: Settings },
-  { label: 'Audit Log', href: '/audit-log', icon: Shield },
+  { label: 'Audit Log', href: '/login/audit-log', icon: Shield },
 ];
 
 interface SidebarProps {
