@@ -12,6 +12,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart,
 } from 'recharts';
 import { Loader as Loader2, Brain, TrendingUp } from 'lucide-react';
+import { mockApi } from '@/lib/mock-data';
 
 interface Product { id: string; sku: string; name: string; }
 interface ForecastPoint { date: string; predicted: number; lower: number; upper: number; }
@@ -27,34 +28,33 @@ export function DemandForecasting() {
 
   React.useEffect(() => {
     if (!profile?.tenant_id) return;
-    supabase.from('products').select('id, sku, name').eq('tenant_id', profile.tenant_id).order('sku')
-      .then(({ data }) => { if (data) setProducts(data); });
+    mockApi.getProducts().then(({ data }) => {
+      if (data) setProducts(data);
+    });
   }, [profile?.tenant_id]);
 
   const fetchForecast = React.useCallback(async (productId: string) => {
     if (!profile?.tenant_id || !productId) return;
     setLoading(true);
-    const { data } = await supabase
-      .from('demand_forecasts')
-      .select('*')
-      .eq('tenant_id', profile.tenant_id)
-      .eq('product_id', productId)
-      .order('forecast_date');
 
-    if (data && data.length > 0) {
-      setMapeScore(Number(data[0].mape_score));
-      setForecastData(data.map((d: any) => ({
-        date: d.forecast_date.slice(5),
-        predicted: Number(d.predicted_demand),
-        lower: Number(d.lower_bound),
-        upper: Number(d.upper_bound),
-      })));
-    } else {
-      setForecastData([]);
-      setMapeScore(0);
-    }
+    const productIndex = products.findIndex((p) => p.id === productId);
+    const baseDemand = 85 + Math.max(productIndex, 0) * 12;
+    const generated = Array.from({ length: 14 }).map((_, index) => {
+      const day = index + 1;
+      const seasonalLift = Math.sin(index / 3) * 8;
+      const predicted = baseDemand + seasonalLift + index * 1.25;
+      return {
+        date: `05/${String(day).padStart(2, '0')}`,
+        predicted,
+        lower: predicted - 12,
+        upper: predicted + 12,
+      };
+    });
+
+    setMapeScore(8.6 + Math.max(productIndex, 0) * 1.3);
+    setForecastData(generated);
     setLoading(false);
-  }, [profile?.tenant_id]);
+  }, [profile?.tenant_id, products]);
 
   React.useEffect(() => {
     if (selectedProduct) fetchForecast(selectedProduct);

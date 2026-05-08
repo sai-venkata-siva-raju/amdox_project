@@ -21,6 +21,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Plus, Loader as Loader2, Trash2, CircleCheck as CheckCircle2 } from 'lucide-react';
+import { mockApi } from '@/lib/mock-data';
 
 interface Account {
   id: string;
@@ -71,26 +72,34 @@ export function JournalEntries() {
   const fetchData = React.useCallback(async () => {
     if (!profile?.tenant_id) return;
     const [entryRes, acctRes] = await Promise.all([
-      supabase
-        .from('journal_entries')
-        .select('*, journal_entry_lines(*)')
-        .eq('tenant_id', profile.tenant_id)
-        .order('entry_date', { ascending: false }),
-      supabase
-        .from('chart_of_accounts')
-        .select('id, account_code, account_name')
-        .eq('tenant_id', profile.tenant_id)
-        .eq('is_active', true)
-        .order('account_code'),
+      mockApi.getJournalEntries(),
+      mockApi.getChartOfAccounts(),
     ]);
 
     if (entryRes.data) {
-      const enriched = entryRes.data.map((e: any) => ({
+      const enriched = entryRes.data.map((e: any, index: number) => ({
         ...e,
-        lines: (e.journal_entry_lines || []).map((l: any) => {
-          const acct = acctRes.data?.find((a: any) => a.id === l.account_id);
-          return { ...l, account_code: acct?.account_code, account_name: acct?.account_name };
-        }),
+        entry_number: e.entry_number || `JE-${String(index + 1).padStart(4, '0')}`,
+        period: e.period || '2026-04',
+        is_posted: e.status === 'posted',
+        lines: [
+          {
+            account_id: acctRes.data?.[0]?.id || 'cash',
+            account_code: acctRes.data?.[0]?.account_code,
+            account_name: acctRes.data?.[0]?.account_name,
+            description: e.description,
+            debit: Number(e.amount || 0),
+            credit: 0,
+          },
+          {
+            account_id: acctRes.data?.[1]?.id || 'revenue',
+            account_code: acctRes.data?.[1]?.account_code,
+            account_name: acctRes.data?.[1]?.account_name,
+            description: e.description,
+            debit: 0,
+            credit: Number(e.amount || 0),
+          },
+        ],
       }));
       setEntries(enriched);
     }
@@ -142,35 +151,25 @@ export function JournalEntries() {
 
     const nextNum = `JE-${String(entries.length + 1).padStart(4, '0')}`;
 
-    const { data: entry, error: entryErr } = await supabase
-      .from('journal_entries')
-      .insert({
-        tenant_id: profile.tenant_id,
-        entry_number: nextNum,
-        description: form.description,
-        entry_date: form.date,
-        period: form.period,
-        created_by: profile.id,
-      })
-      .select('id')
-      .maybeSingle();
-
-    if (entryErr || !entry) {
-      setSaving(false);
-      return;
-    }
-
     const lines = form.lines
       .filter((l) => l.account_id && (Number(l.debit) > 0 || Number(l.credit) > 0))
       .map((l) => ({
-        journal_entry_id: entry.id,
+        journal_entry_id: nextNum,
         account_id: l.account_id,
         description: l.description,
         debit: Number(l.debit),
         credit: Number(l.credit),
       }));
 
-    await supabase.from('journal_entry_lines').insert(lines);
+    await mockApi.insert('journal_entries', {
+      tenant_id: profile.tenant_id,
+      entry_number: nextNum,
+      description: form.description,
+      entry_date: form.date,
+      period: form.period,
+      created_by: profile.id,
+      lines,
+    });
 
     setSaving(false);
     setDialogOpen(false);
@@ -178,17 +177,17 @@ export function JournalEntries() {
   };
 
   const handlePost = async (entry: JournalEntry) => {
-    await supabase.from('journal_entries').update({ is_posted: true }).eq('id', entry.id);
+    await mockApi.update('journal_entries', entry.id, { status: 'posted' });
     fetchData();
   };
 
   const handleClosePeriod = async () => {
     if (!profile?.tenant_id) return;
-    await supabase
-      .from('fiscal_periods')
-      .update({ is_closed: true, closed_by: profile.id, closed_at: new Date().toISOString() })
-      .eq('tenant_id', profile.tenant_id)
-      .eq('period', currentPeriod);
+    await mockApi.update('fiscal_periods', currentPeriod, {
+      is_closed: true,
+      closed_by: profile.id,
+      closed_at: new Date().toISOString(),
+    });
     setClosePeriodOpen(false);
     fetchData();
   };

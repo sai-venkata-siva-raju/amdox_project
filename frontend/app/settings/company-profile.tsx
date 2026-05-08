@@ -42,7 +42,11 @@ export function CompanyProfile() {
     ]);
 
     if (settRes.data) {
-      setSettings(settRes.data);
+      setSettings({
+        id: 'mock-company-settings',
+        logo_url: null,
+        ...settRes.data,
+      });
       setForm({
         timezone: settRes.data.timezone,
         currency: settRes.data.currency,

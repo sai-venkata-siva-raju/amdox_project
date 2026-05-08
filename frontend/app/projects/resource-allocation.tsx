@@ -11,6 +11,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { TriangleAlert as AlertTriangle, Users, Loader as Loader2, TrendingUp, UserCheck, ChartBar as BarChart3 } from 'lucide-react';
+import { mockApi } from '@/lib/mock-data';
 
 interface AllocationRow {
   employee_id: string;
@@ -31,8 +32,8 @@ export function ResourceAllocation() {
 
     const fetchAllocations = async () => {
       const [memRes, empRes] = await Promise.all([
-        supabase.from('project_members').select('employee_id, allocation_pct, role, project_id, projects!project_members_project_id_fkey(name)').eq('tenant_id', profile.tenant_id),
-        supabase.from('employees').select('id, first_name, last_name, department').eq('tenant_id', profile.tenant_id),
+        mockApi.getProjectMembers(),
+        mockApi.getEmployees(),
       ]);
 
       if (memRes.data && empRes.data) {
