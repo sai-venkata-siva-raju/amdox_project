@@ -8,6 +8,11 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  app.use((req, _res, next) => {
+    console.log(`[api] ${req.method} ${req.url}`);
+    next();
+  });
+
   // Security middleware
   app.use(helmet());
   app.use(compression());

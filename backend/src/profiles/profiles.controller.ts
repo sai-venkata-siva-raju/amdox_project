@@ -5,6 +5,7 @@ import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantScopeGuard } from '../auth/guards/tenant-scope.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('profiles')
 @Controller('profiles')
@@ -14,6 +15,7 @@ export class ProfilesController {
   constructor(private readonly profilesService: ProfilesService) {}
 
   @Post()
+  @Roles('superadmin', 'tenantadmin')
   @ApiOperation({ summary: 'Create a new profile' })
   @ApiResponse({ status: 201, description: 'Profile created successfully.' })
   create(@Body() createProfileDto: CreateProfileDto, @Request() req) {
@@ -24,6 +26,7 @@ export class ProfilesController {
   }
 
   @Get()
+  @Roles('superadmin', 'tenantadmin', 'manager')
   @ApiOperation({ summary: 'Get all profiles for current tenant' })
   @ApiResponse({ status: 200, description: 'List of profiles retrieved.' })
   findAll(@Request() req) {
@@ -31,6 +34,7 @@ export class ProfilesController {
   }
 
   @Get(':id')
+  @Roles('superadmin', 'tenantadmin', 'manager')
   @ApiOperation({ summary: 'Get a specific profile' })
   @ApiResponse({ status: 200, description: 'Profile retrieved.' })
   findOne(@Param('id') id: string, @Request() req) {
@@ -38,6 +42,7 @@ export class ProfilesController {
   }
 
   @Patch(':id')
+  @Roles('superadmin', 'tenantadmin')
   @ApiOperation({ summary: 'Update a profile' })
   @ApiResponse({ status: 200, description: 'Profile updated.' })
   update(@Param('id') id: string, @Body() updateProfileDto: UpdateProfileDto, @Request() req) {
@@ -45,6 +50,7 @@ export class ProfilesController {
   }
 
   @Delete(':id')
+  @Roles('superadmin')
   @ApiOperation({ summary: 'Delete a profile' })
   @ApiResponse({ status: 200, description: 'Profile deleted.' })
   remove(@Param('id') id: string, @Request() req) {

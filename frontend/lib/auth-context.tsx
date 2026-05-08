@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import apiClient, { UserRole, UserProfile as ApiUserProfile } from './api';
 
 export interface UserProfile extends ApiUserProfile {}
+export type { UserRole };
 
 interface AuthContextValue {
   user: UserProfile | null;
@@ -98,9 +99,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     tenantName: string,
     tenantSlug: string
   ) => {
-    // For now, sign up is not implemented in the backend
-    // You would need to create a registration endpoint
-    return { error: 'Registration not yet implemented. Please contact administrator.' };
+    setLoading(true);
+    try {
+      const response = await apiClient.register({
+        email,
+        password,
+        fullName,
+        tenantName,
+        tenantSlug,
+      });
+
+      if (response.error) {
+        return { error: response.error };
+      }
+
+      if (response.data) {
+        const { token, user: userData } = response.data;
+        apiClient.setToken(token);
+
+        const userProfile: UserProfile = {
+          id: userData.id,
+          tenant_id: userData.tenant_id,
+          full_name: userData.full_name,
+          email: userData.email,
+          avatar_url: userData.avatar_url || null,
+          role: userData.role as UserRole,
+          tenant_name: userData.tenant_name,
+          tenant_slug: userData.tenant_slug,
+        };
+
+        setUser(userProfile);
+        setSession({ user: userProfile });
+        setProfile(userProfile);
+
+        return { error: null };
+      }
+
+      return { error: 'Registration failed' };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : 'Registration failed' };
+    } finally {
+      setLoading(false);
+    }
   };
 
   const signOut = async () => {

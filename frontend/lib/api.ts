@@ -25,6 +25,15 @@ export interface LoginResponse {
   };
 }
 
+export interface RegisterCredentials {
+  fullName: string;
+  email: string;
+  password: string;
+  tenantName: string;
+  tenantSlug: string;
+  avatarUrl?: string;
+}
+
 export type UserRole = 'superadmin' | 'tenantadmin' | 'manager' | 'viewer';
 
 export interface UserProfile {
@@ -36,6 +45,35 @@ export interface UserProfile {
   role: UserRole;
   tenant_name?: string;
   tenant_slug?: string;
+}
+
+export interface DashboardKpiMetric {
+  id: string;
+  metric_key: string;
+  metric_value: number;
+  label: string;
+}
+
+export interface DashboardActivity {
+  id: string;
+  action: string;
+  module: string;
+  created_at: string;
+}
+
+export interface DashboardSummary {
+  kpis: DashboardKpiMetric[];
+  activities: DashboardActivity[];
+}
+
+export interface NotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  module: string;
+  created_at: string;
 }
 
 class ApiClient {
@@ -80,6 +118,10 @@ class ApiClient {
     }
 
     try {
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[api]', options.method || 'GET', url);
+      }
+
       const response = await fetch(url, {
         ...options,
         headers,
@@ -103,6 +145,13 @@ class ApiClient {
 
   async login(credentials: LoginCredentials): Promise<ApiResponse<LoginResponse>> {
     return this.request<LoginResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+  }
+
+  async register(credentials: RegisterCredentials): Promise<ApiResponse<LoginResponse>> {
+    return this.request<LoginResponse>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
@@ -150,6 +199,14 @@ class ApiClient {
 
   async getHealth(): Promise<ApiResponse<{ status: string; timestamp: string; uptime: number }>> {
     return this.request<{ status: string; timestamp: string; uptime: number }>('/health');
+  }
+
+  async getDashboardSummary(): Promise<ApiResponse<DashboardSummary>> {
+    return this.request<DashboardSummary>('/dashboard/summary');
+  }
+
+  async getNotifications(): Promise<ApiResponse<NotificationItem[]>> {
+    return this.request<NotificationItem[]>('/notifications');
   }
 }
 

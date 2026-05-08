@@ -114,24 +114,38 @@ export function ProjectDetail({ projectId, onBack }: { projectId: string; onBack
     setLoading(true);
 
     const [projRes, mileRes, taskRes, memRes, profRes] = await Promise.all([
-      mockApi.getProjects().then(p => ({ data: p?.find((project: any) => project.id === projectId) })),
-      mockApi.getMilestones().then(m => ({ data: m?.filter((milestone: any) => milestone.project_id === projectId) })),
-      mockApi.getTasks().then(t => ({ data: t?.filter((task: any) => task.project_id === projectId) })),
-      mockApi.getProjectMembers().then(m => ({ data: m?.filter((member: any) => member.project_id === projectId) })),
-      mockApi.getEmployees().then(e => ({ data: e })),
+      mockApi.getProjects(),
+      mockApi.getMilestones(),
+      mockApi.getTasks(),
+      mockApi.getProjectMembers(),
+      mockApi.getEmployees(),
     ]);
 
-    if (projRes.data) setProject(projRes.data);
-    if (mileRes.data) {
+    const projects = projRes.data ?? [];
+    const milestonesData = mileRes.data ?? [];
+    const tasksData = taskRes.data ?? [];
+    const membersData = memRes.data ?? [];
+    const employeesData = profRes.data ?? [];
+
+    const foundProject = projects.find((project: any) => project.id === projectId);
+    if (foundProject) setProject(foundProject);
+
+    const filteredMilestones = milestonesData.filter((milestone: any) => milestone.project_id === projectId);
+    if (filteredMilestones) {
       const today = new Date().toISOString().slice(0, 10);
-      setMilestones(mileRes.data.map((m: any) => ({
+      setMilestones(filteredMilestones.map((m: any) => ({
         ...m,
         status: m.status === 'Pending' && m.due_date < today ? 'Overdue' : m.status,
       })));
     }
-    if (taskRes.data) setTasks(taskRes.data);
-    if (memRes.data) setMembers(memRes.data as any);
-    if (profRes.data) setProfiles(profRes.data);
+    setTasks(tasksData.filter((task: any) => task.project_id === projectId));
+    setMembers(membersData.filter((member: any) => member.project_id === projectId) as any);
+    setProfiles(
+      employeesData.map((employee: any) => ({
+        id: employee.id,
+        full_name: `${employee.first_name} ${employee.last_name}`,
+      })),
+    );
 
     setLoading(false);
   }, [profile?.tenant_id, projectId]);

@@ -1,9 +1,11 @@
-import { Controller, Post, Body, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Request, ConflictException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtService } from '@nestjs/jwt';
+import { Public } from './decorators/public.decorator';
+import { RegisterDto } from './dto/register.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -14,33 +16,76 @@ export class AuthController {
   ) {}
 
   @UseGuards(LocalAuthGuard)
+  @Public()
   @Post('login')
   @ApiOperation({ summary: 'Login with email and password' })
   @ApiResponse({ status: 200, description: 'Login successful' })
   login(@Request() req) {
     const user = req.user;
-    const payload = { 
-      sub: user.userId, 
+    const payload = {
+      sub: user.userId,
       email: user.email,
-      tenantId: 'a0000000-0000-0000-0000-000000000001',
-      role: 'superadmin'
+      tenantId: user.tenantId,
+      role: user.role,
     };
-    
+
     const token = this.jwtService.sign(payload);
-    
+
     return {
       token,
       user: {
-        id: 'a0000000-0000-0000-0000-000000000002',
+        id: user.userId,
         email: user.email,
-        full_name: 'System Administrator',
-        role: 'superadmin',
-        tenant_id: 'a0000000-0000-0000-0000-000000000001',
-        tenant_name: 'Amdox Corporation',
-        tenant_slug: 'amdox',
-        avatar_url: null
+        full_name: user.full_name,
+        role: user.role,
+        tenant_id: user.tenantId,
+        tenant_name: user.tenantName,
+        tenant_slug: user.tenantSlug,
+        avatar_url: user.avatar_url,
       }
     };
+  }
+
+  @Public()
+  @Post('register')
+  @ApiOperation({ summary: 'Register organization and tenant admin account' })
+  @ApiResponse({ status: 201, description: 'Registration successful' })
+  async register(@Body() registerDto: RegisterDto) {
+    try {
+      const user = await this.authService.registerTenantAdmin({
+        fullName: registerDto.fullName,
+        email: registerDto.email,
+        password: registerDto.password,
+        tenantName: registerDto.tenantName,
+        tenantSlug: registerDto.tenantSlug,
+        avatarUrl: registerDto.avatarUrl,
+      });
+
+      const token = this.jwtService.sign({
+        sub: user.userId,
+        email: user.email,
+        tenantId: user.tenantId,
+        role: user.role,
+      });
+
+      return {
+        token,
+        user: {
+          id: user.userId,
+          email: user.email,
+          full_name: user.full_name,
+          role: user.role,
+          tenant_id: user.tenantId,
+          tenant_name: user.tenantName,
+          tenant_slug: user.tenantSlug,
+          avatar_url: user.avatar_url,
+        },
+      };
+    } catch (error) {
+      throw new ConflictException(
+        error instanceof Error ? error.message : 'Registration failed',
+      );
+    }
   }
 
   @UseGuards(JwtAuthGuard)
@@ -49,15 +94,6 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'User profile retrieved' })
   @ApiBearerAuth()
   getProfile(@Request() req) {
-    return {
-      id: 'a0000000-0000-0000-0000-000000000002',
-      email: req.user.email,
-      full_name: 'System Administrator',
-      role: 'superadmin',
-      tenant_id: 'a0000000-0000-0000-0000-000000000001',
-      tenant_name: 'Amdox Corporation',
-      tenant_slug: 'amdox',
-      avatar_url: null
-    };
+    return this.authService.findProfileByEmail(req.user.email);
   }
 }

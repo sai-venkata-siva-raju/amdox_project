@@ -1,6 +1,6 @@
 # Amdox ERP Suite Backend
 
-A comprehensive NestJS-based backend API for the Amdox ERP Suite, built with TypeScript, PostgreSQL, and TypeORM.
+A comprehensive NestJS-based backend API for the Amdox ERP Suite, built with TypeScript, MongoDB, and Mongoose.
 
 ## Features
 
@@ -15,44 +15,31 @@ A comprehensive NestJS-based backend API for the Amdox ERP Suite, built with Typ
   - Dashboard & Notifications
 - **Authentication**: JWT-based authentication with tenant isolation
 - **API Documentation**: Swagger/OpenAPI documentation
-- **Database**: PostgreSQL with TypeORM ORM
+- **Database**: MongoDB with Mongoose ODM
 
 ## Database Recommendation
 
-### PostgreSQL (Recommended)
-PostgreSQL is the recommended database as it's already used by Supabase and provides excellent support for complex queries and transactions.
+### MongoDB (Recommended)
+MongoDB is the recommended database for this backend implementation. The app is now configured to use Mongoose models and a Mongo connection string from `MONGODB_URI`.
 
 #### Setup Options:
 
-**Option 1: Local PostgreSQL**
+**Option 1: Local MongoDB**
 ```bash
-# Install PostgreSQL
-sudo apt-get install postgresql postgresql-contrib
-
-# Create database
-sudo -u postgres createdb amdox_erp
-
-# Create user
-sudo -u postgres psql
-CREATE USER amdox_user WITH PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE amdox_erp TO amdox_user;
+mongod --dbpath /path/to/data
 ```
 
-**Option 2: Docker PostgreSQL**
+**Option 2: Docker MongoDB**
 ```bash
-docker run --name amdox-postgres \
-  -e POSTGRES_DB=amdox_erp \
-  -e POSTGRES_USER=amdox_user \
-  -e POSTGRES_PASSWORD=your_password \
-  -p 5432:5432 \
-  -d postgres:15
+docker run --name amdox-mongo \
+  -e MONGO_INITDB_ROOT_USERNAME=amdox \
+  -e MONGO_INITDB_ROOT_PASSWORD=your_password \
+  -p 27017:27017 \
+  -d mongo:7
 ```
 
-**Option 3: Supabase (Recommended)**
-Since your frontend already uses Supabase, you can:
-1. Use the same Supabase project
-2. Enable PostgreSQL connection pooling
-3. Use the connection string in your backend
+**Option 3: MongoDB Atlas**
+Use your Atlas connection string in `MONGODB_URI`.
 
 ## Installation
 
@@ -68,13 +55,9 @@ cp .env.example .env
 
 Edit `.env` with your database configuration:
 ```env
-# Database Configuration
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=amdox_erp
-DB_USER=amdox_user
-DB_PASSWORD=your_password_here
-DB_SSL=false
+# MongoDB Configuration
+MONGODB_URI=mongodb://127.0.0.1:27017/amdox_erp
+MONGODB_DB_NAME=amdox_erp
 
 # Server Configuration
 PORT=3001
@@ -89,11 +72,7 @@ FRONTEND_URL=http://localhost:3000
 ```
 
 3. **Database Setup**
-Run the SQL migrations from your frontend Supabase migrations:
-```bash
-# Import all migration files
-psql -h localhost -U amdox_user -d amdox_erp -f path/to/migrations/*.sql
-```
+Seed data is created automatically for the demo tenant and admin user on startup.
 
 ## Running the Application
 
@@ -193,11 +172,8 @@ npm run test:e2e
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DB_HOST` | Database host | localhost |
-| `DB_PORT` | Database port | 5432 |
-| `DB_NAME` | Database name | amdox_erp |
-| `DB_USER` | Database user | postgres |
-| `DB_PASSWORD` | Database password | - |
+| `MONGODB_URI` | Mongo connection string | mongodb://127.0.0.1:27017/amdox_erp |
+| `MONGODB_DB_NAME` | Mongo database name | amdox_erp |
 | `JWT_SECRET` | JWT secret key | - |
 | `JWT_EXPIRES_IN` | JWT expiration | 7d |
 | `FRONTEND_URL` | Frontend URL for CORS | http://localhost:3000 |

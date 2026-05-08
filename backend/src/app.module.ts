@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD, Reflector } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './auth/auth.module';
 import { TenantsModule } from './tenants/tenants.module';
 import { ProfilesModule } from './profiles/profiles.module';
@@ -12,6 +13,9 @@ import { ProjectsModule } from './projects/projects.module';
 import { BiModule } from './bi/bi.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { HealthModule } from './health/health.module';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { TenantScopeGuard } from './auth/guards/tenant-scope.guard';
+import { RolesGuard } from './auth/guards/roles.guard';
 
 @Module({
   imports: [
@@ -19,20 +23,16 @@ import { HealthModule } from './health/health.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    TypeOrmModule.forRootAsync({
+    MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('DB_HOST'),
-        port: configService.get<number>('DB_PORT'),
-        username: configService.get<string>('DB_USER'),
-        password: configService.get<string>('DB_PASSWORD'),
-        database: configService.get<string>('DB_NAME'),
-        ssl: configService.get<string>('DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        migrations: [__dirname + '/migrations/*{.ts,.js}'],
-        synchronize: configService.get<string>('TYPEORM_SYNCHRONIZE') === 'true',
-        logging: configService.get<string>('TYPEORM_LOGGING') === 'true',
+        uri:
+          configService.get<string>('MONGODB_URI') ||
+          configService.get<string>('MONGO_URL') ||
+          'mongodb://127.0.0.1:27017/amdox_erp',
+        dbName: configService.get<string>('MONGODB_DB_NAME') || 'amdox_erp',
+        retryAttempts: 3,
+        retryDelay: 3000,
       }),
       inject: [ConfigService],
     }),
@@ -47,6 +47,12 @@ import { HealthModule } from './health/health.module';
     BiModule,
     NotificationsModule,
     HealthModule,
+  ],
+  providers: [
+    Reflector,
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: TenantScopeGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
 export class AppModule {}

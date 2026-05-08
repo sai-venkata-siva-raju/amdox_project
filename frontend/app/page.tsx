@@ -5,7 +5,8 @@ import { KpiCard } from '@/components/dashboard/kpi-card';
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DollarSign, Users, ShoppingCart, Clock } from 'lucide-react';
-import { mockApi, mockKpiData, mockActivities } from '@/lib/mock-data';
+import apiClient from '@/lib/api';
+import { mockApi } from '@/lib/mock-data';
 
 interface KpiMetric {
   id: string;
@@ -66,7 +67,22 @@ export default function DashboardPage() {
   React.useEffect(() => {
     async function fetchData() {
       try {
-        // Use mock data instead of supabase calls
+        const response = await apiClient.getDashboardSummary();
+
+        if (response.data) {
+          setKpis(response.data.kpis);
+          setActivities(response.data.activities);
+          return;
+        }
+
+        const fallback = await Promise.all([
+          mockApi.getKpiData(),
+          mockApi.getActivities(),
+        ]);
+
+        if (fallback[0].data) setKpis(fallback[0].data);
+        if (fallback[1].data) setActivities(fallback[1].data);
+      } catch {
         const [kpiRes, actRes] = await Promise.all([
           mockApi.getKpiData(),
           mockApi.getActivities(),
@@ -74,8 +90,6 @@ export default function DashboardPage() {
 
         if (kpiRes.data) setKpis(kpiRes.data);
         if (actRes.data) setActivities(actRes.data);
-      } catch {
-        // Fallback to empty state on error
       } finally {
         setLoading(false);
       }

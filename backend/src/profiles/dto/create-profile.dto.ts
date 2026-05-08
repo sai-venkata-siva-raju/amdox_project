@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsEnum } from 'class-validator';
 
 export enum UserRole {
   SUPERADMIN = 'superadmin',
@@ -8,15 +8,21 @@ export enum UserRole {
 }
 
 export class CreateProfileDto {
-  @IsUUID()
-  id: string;
+  @IsString()
+  @IsOptional()
+  id?: string;
 
-  @IsUUID()
-  tenant_id: string;
+  @IsString()
+  @IsOptional()
+  tenant_id?: string;
 
   @IsString()
   @IsOptional()
   full_name?: string;
+
+  @IsString()
+  @IsOptional()
+  email?: string;
 
   @IsString()
   @IsOptional()

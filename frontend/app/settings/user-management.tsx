@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { UserPlus, Loader as Loader2, Shield, Building2, User, Mail } from 'lucide-react';
 import { toast } from 'sonner';
+import { mockApi } from '@/lib/mock-data';
 
 interface ProfileRow {
   id: string;
@@ -45,11 +46,17 @@ export function UserManagement() {
 
   const fetchUsers = React.useCallback(async () => {
     if (!profile?.tenant_id) return;
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name, role, created_at')
-      .eq('tenant_id', profile.tenant_id);
-    if (data) setUsers(data);
+    const { data } = await mockApi.getEmployees();
+    if (data) {
+      setUsers(
+        data.map((employee: any, index: number) => ({
+          id: employee.id,
+          full_name: `${employee.first_name} ${employee.last_name}`,
+          role: index % 4 === 0 ? 'superadmin' : index % 4 === 1 ? 'tenantadmin' : index % 4 === 2 ? 'manager' : 'viewer',
+          created_at: employee.joining_date || new Date().toISOString(),
+        })),
+      );
+    }
     setLoading(false);
   }, [profile?.tenant_id]);
 
@@ -58,7 +65,7 @@ export function UserManagement() {
   const handleInvite = async () => {
     if (!profile?.tenant_id || !form.email) return;
     setSaving(true);
-    await supabase.from('tenant_invitations').insert({
+    await mockApi.insert('tenant_invitations', {
       tenant_id: profile.tenant_id,
       email: form.email,
       role: form.role,
@@ -70,7 +77,7 @@ export function UserManagement() {
   };
 
   const updateRole = async (userId: string, role: string) => {
-    await supabase.from('profiles').update({ role }).eq('id', userId);
+    await mockApi.update('profiles', userId, { role });
     setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, role } : u));
     toast.success('Role updated successfully');
   };

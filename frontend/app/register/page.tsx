@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import apiClient from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,8 +12,9 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Eye, EyeOff, Loader as Loader2, Building2 } from 'lucide-react';
 
 export default function RegisterPage() {
-  const { signUp, loading: authLoading } = useAuth();
+  const { loading: authLoading } = useAuth();
   const router = useRouter();
+  const buildTag = 'register-v3';
 
   const [fullName, setFullName] = React.useState('');
   const [email, setEmail] = React.useState('');
@@ -24,6 +26,7 @@ export default function RegisterPage() {
   const [showConfirm, setShowConfirm] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [submitting, setSubmitting] = React.useState(false);
+  const [requestState, setRequestState] = React.useState<'idle' | 'sending' | 'success' | 'error'>('idle');
 
   const generateSlug = (name: string) =>
     name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -53,22 +56,54 @@ export default function RegisterPage() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitRegistration = async () => {
     if (!validate()) return;
 
     setSubmitting(true);
+    setRequestState('sending');
     setErrors({});
+    try {
+      console.log('[register] submit', { email, fullName, tenantName, tenantSlug });
 
-    const { error } = await signUp(email, password, fullName, tenantName, tenantSlug);
+      const response = await fetch('http://localhost:3001/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          fullName,
+          tenantName,
+          tenantSlug,
+        }),
+      });
 
-    if (error) {
-      setErrors({ general: error });
+      const data = await response.json();
+      console.log('[register] response', response.status, data);
+
+      if (!response.ok) {
+        setErrors({ general: data.message || data.error || 'Registration failed' });
+        setRequestState('error');
+        return;
+      }
+
+      if (data?.token) {
+        apiClient.setToken(data.token);
+        setRequestState('success');
+        window.location.assign('/');
+        return;
+      }
+
+      setRequestState('success');
+      router.push('/login');
+    } catch (error) {
+      console.error('[register] request failed', error);
+      setRequestState('error');
+      setErrors({
+        general: error instanceof Error ? error.message : 'Unable to reach the API',
+      });
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    router.push('/');
   };
 
   if (authLoading) {
@@ -130,10 +165,22 @@ export default function RegisterPage() {
             <p className="text-sm text-muted-foreground">
               Set up your organization and admin account
             </p>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              {buildTag}
+            </p>
           </CardHeader>
 
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void submitRegistration();
+              }}
+              className="space-y-4"
+            >
+              <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                Request status: <span className="font-medium text-foreground">{requestState}</span>
+              </div>
               {errors.general && (
                 <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
                   {errors.general}
@@ -275,7 +322,12 @@ export default function RegisterPage() {
                 </p>
               </div>
 
-              <Button type="submit" className="w-full" disabled={submitting}>
+              <Button
+                type="button"
+                className="w-full"
+                disabled={submitting}
+                onClick={() => { void submitRegistration(); }}
+              >
                 {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create organization
               </Button>
